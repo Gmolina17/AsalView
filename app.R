@@ -301,63 +301,62 @@ server <- function(input, output) {
   
   # Reactive data to load CSV files#############################################
   
-  datosArmaBlanca <- reactive({
-    datos <- read.csv('./data/Aarmablanca.csv')
+  cargaDatosBase <- function(filePath) {
+    datos <- read.csv(filePath)
     return(datos)
+  }
+  
+  datosArmaBlanca <- reactive({
+    return(cargaDatosBase('./data/Aarmablanca.csv'))
   })
   
   datosArmaFuego <- reactive({
-    datos <- read.csv('./data/Aarmafuego.csv')
-    return(datos)
+    return(cargaDatosBase('./data/Aarmafuego.csv'))
   })
   
   datosArrebato <- reactive({
-    datos <- read.csv('./data/Aarrebato.csv')
-    return(datos)
+    return(cargaDatosBase('./data/Aarrebato.csv'))
   })
   
   datosGolpes <- reactive({
-    datos <- read.csv('./data/Agolpes.csv')
-    return(datos)
+    return(cargaDatosBase('./data/Agolpes.csv'))
   })
   
   
   # Filtros de Fecha##########################################################
   
+  filtroFechaBase <- function(data, fechasUsuario) {
+    data$Fecha <- as.Date(data$Fecha, "%m/%d/%y")
+    data <- data[data$Fecha  %between% fechasUsuario, ]
+    return(data)
+  }
+  
   filtroFechaReactiveAB <- reactive({
     fechasUsuario <- input$date_AB
     
     data <- datosArmaBlanca()
-    data$Fecha <- as.Date(data$Fecha, "%m/%d/%y")
-    data <- data[data$Fecha  %between% fechasUsuario, ]
-    return(data)
+    return(filtroFechaBase(data, fechasUsuario))
   })
   
   filtroFechaReactiveAF <- reactive({
     fechasUsuario <- input$date_AF
     
     data <- datosArmaFuego()
-    data$Fecha <- as.Date(data$Fecha, "%m/%d/%y")
-    data <- data[data$Fecha  %between% fechasUsuario, ]
-    return(data)
+    return(filtroFechaBase(data, fechasUsuario))
   })
   
   filtroFechaReactiveA <- reactive({
     fechasUsuario <- input$date_A
     
     data <- datosArrebato()
-    data$Fecha <- as.Date(data$Fecha, "%m/%d/%y")
-    data <- data[data$Fecha  %between% fechasUsuario, ]
-    return(data)
+    return(filtroFechaBase(data, fechasUsuario))
   })
   
   filtroFechaReactiveG <- reactive({
     fechasUsuario <- input$date_G
     
     data <- datosGolpes()
-    data$Fecha <- as.Date(data$Fecha, "%m/%d/%y")
-    data <- data[data$Fecha  %between% fechasUsuario, ]
-    return(data)
+    return(filtroFechaBase(data, fechasUsuario))
   })
   
   # Filtros de genero#####################################################
@@ -446,12 +445,7 @@ server <- function(input, output) {
   
   # Filtros de provincia########################################################
   
-  filtroProvinciaReactiveAB <- reactive({
-    seleccionProvincia <- input$filtro_provincia_AB
-    
-    validate(need(!is.null(seleccionProvincia), "Seleccione Provincia"))
-    
-    data <- filtroFechaReactiveAB()
+  filtroProvinciaBase <- function(data, seleccionProvincia) {
     data <- data[data$Provincia %in% seleccionProvincia, ]
     
     data <- aggregate(Delito ~ Provincia, data, FUN=length)
@@ -461,6 +455,15 @@ server <- function(input, output) {
     lower_bound <- ifelse(lower_bound == upper_bound, lower_bound-1, lower_bound)
     data$Radio <- 15 + (40 / (upper_bound - lower_bound)) * (data$Delito - lower_bound)
     return(data)
+  }
+  
+  filtroProvinciaReactiveAB <- reactive({
+    seleccionProvincia <- input$filtro_provincia_AB
+    
+    validate(need(!is.null(seleccionProvincia), "Seleccione Provincia"))
+    
+    data <- filtroFechaReactiveAB()
+    return(filtroProvinciaBase(data, seleccionProvincia))
   })
   
   filtroProvinciaReactiveAF <- reactive({
@@ -469,15 +472,7 @@ server <- function(input, output) {
     validate(need(!is.null(seleccionProvincia), "Seleccione Provincia"))
     
     data <- filtroFechaReactiveAF()
-    data <- data[data$Provincia %in% seleccionProvincia, ]
-    
-    data <- aggregate(Delito ~ Provincia, data, FUN=length)
-    data <- merge(data, location_data, by = "Provincia")
-    upper_bound <- max(data$Delito)
-    lower_bound <- min(data$Delito)
-    lower_bound <- ifelse(lower_bound == upper_bound, lower_bound-1, lower_bound)
-    data$Radio <- 15 + (40 / (upper_bound - lower_bound)) * (data$Delito - lower_bound)
-    return(data)
+    return(filtroProvinciaBase(data, seleccionProvincia))
   })
   
   filtroProvinciaReactiveA <- reactive({
@@ -486,15 +481,7 @@ server <- function(input, output) {
     validate(need(!is.null(seleccionProvincia), "Seleccione Provincia"))
     
     data <- filtroFechaReactiveA()
-    data <- data[data$Provincia %in% seleccionProvincia, ]
-    
-    data <- aggregate(Delito ~ Provincia, data, FUN=length)
-    data <- merge(data, location_data, by = "Provincia")
-    upper_bound <- max(data$Delito)
-    lower_bound <- min(data$Delito)
-    lower_bound <- ifelse(lower_bound == upper_bound, lower_bound-1, lower_bound)
-    data$Radio <- 15 + (30 / (upper_bound - lower_bound)) * (data$Delito - lower_bound)
-    return(data)
+    return(filtroProvinciaBase(data, seleccionProvincia))
   })
   
   filtroProvinciaReactiveG <- reactive({
@@ -503,161 +490,106 @@ server <- function(input, output) {
     validate(need(!is.null(seleccionProvincia), "Seleccione Provincia"))
     
     data <- filtroFechaReactiveG()
-    data <- data[data$Provincia %in% seleccionProvincia, ]
-    
-    data <- aggregate(Delito ~ Provincia, data, FUN=length)
-    data <- merge(data, location_data, by = "Provincia")
-    upper_bound <- max(data$Delito)
-    lower_bound <- min(data$Delito)
-    lower_bound <- ifelse(lower_bound == upper_bound, lower_bound-1, lower_bound)
-    data$Radio <- 15 + (40 / (upper_bound - lower_bound)) * (data$Delito - lower_bound)
-    return(data)
+    return(filtroProvinciaBase(data, seleccionProvincia))
   })
   
   # Agrupación de Fecha##########################################################
   
-  agrupacionFechaReactiveAB <- reactive({
-    data <- filtroFechaReactiveAB()
+  agrupacionBase <- function(data) {
     data$Fecha <- format(data$Fecha, "%m/%y")
     data <- aggregate(Delito ~ Fecha, data, FUN=length)
     return(data)
+  }
+  
+  agrupacionFechaReactiveAB <- reactive({
+    return(agrupacionBase(filtroFechaReactiveAB()))
   })
   
   agrupacionFechaReactiveAF <- reactive({
-    data <- filtroFechaReactiveAF()
-    data$Fecha <- format(data$Fecha, "%m/%y")
-    data <- aggregate(Delito ~ Fecha, data, FUN=length)
-    return(data)
+    return(agrupacionBase(filtroFechaReactiveAF()))
   })
   
   agrupacionFechaReactiveA <- reactive({
-    data <- filtroFechaReactiveA()
-    data$Fecha <- format(data$Fecha, "%m/%y")
-    data <- aggregate(Delito ~ Fecha, data, FUN=length)
-    return(data)
+    return(agrupacionBase(filtroFechaReactiveA()))
   })
   
   agrupacionFechaReactiveG <- reactive({
-    data <- filtroFechaReactiveG()
-    data$Fecha <- format(data$Fecha, "%m/%y")
-    data <- aggregate(Delito ~ Fecha, data, FUN=length)
-    return(data)
+    return(agrupacionBase(filtroFechaReactiveG()))
   })
   
   # Tablas de datos originales################################################
   
-  output$tabla_armablanca <- renderDT({ return(datosArmaBlanca()) })
+  output$tabla_armablanca <- renderDT({ return(filtroFechaReactiveAB()) })
   
-  output$tabla_armafuego <- renderDT({ return(datosArmaFuego()) })
+  output$tabla_armafuego <- renderDT({ return(filtroFechaReactiveAF()) })
   
-  output$tabla_arrebato <- renderDT({ return(datosArrebato()) })
+  output$tabla_arrebato <- renderDT({ return(filtroFechaReactiveA()) })
   
-  output$tabla_golpes <- renderDT({ return(datosGolpes()) })
+  output$tabla_golpes <- renderDT({ return(filtroFechaReactiveG()) })
   
   # Gráficas Género ###########################################################
   
-  output$grafico_armablanca_genero <- renderPlotly({
-    # Guardando grafico en un objeto
-    g <- ggplot(filtroGeneroReactiveAB())+
+  graficasGeneroBase <- function(data) {
+    #Guardando gráfico en un objeto
+    g <- ggplot(data)+
       geom_bar(mapping= aes(x=Genero, fill=Genero))+
       scale_fill_brewer(palette = "Pastel2")+
       xlab("Género de la victima")+
       ylab("Total de víctimas")
-    
     # Transformando el gráfico a plotly
     return(ggplotly(g))
+}
+  
+  output$grafico_armablanca_genero <- renderPlotly({
+    return(graficasGeneroBase(filtroGeneroReactiveAB()))
   })
   
   output$grafico_golpes_genero <- renderPlotly({
-    # Guardando grafico en un objeto
-    g <- ggplot( filtroGeneroReactiveG ())+
-      geom_bar(mapping= aes(x=Genero, fill=Genero))+
-      scale_fill_brewer(palette = "Pastel2")+
-      xlab("Género de la víctima")+
-      ylab("Total de víctimas")
-    
-    # Transformando el gráfico a plotly
-    return(ggplotly(g))
+    return(graficasGeneroBase(filtroGeneroReactiveG()))
   })
   
   output$grafico_armafuego_genero <- renderPlotly({
-    # Guardando grafico en un objeto
-    g <- ggplot(filtroGeneroReactiveAF())+
-      geom_bar(mapping= aes(x=Genero, fill=Genero))+
-      scale_fill_brewer(palette = "Pastel2")+
-      xlab("Género de la víctima")+
-      ylab("Total de víctimas")
-    
-    # Transformando el gráfico a plotly
-    return(ggplotly(g))
+    return(graficasGeneroBase(filtroGeneroReactiveAF()))
   })
   
   output$grafico_arrebato_genero <- renderPlotly({
-    # Guardando grafico en un objeto
-    g <- ggplot(filtroGeneroReactiveA())+
-      geom_bar(mapping= aes(x=Genero, fill=Genero))+
-      scale_fill_brewer(palette = "Pastel2")+
-      xlab("Género de la víctima")+
-      ylab("Total de víctimas")
-    
-    # Transformando el gráfico a plotly
-    return(ggplotly(g))
+    return(graficasGeneroBase(filtroGeneroReactiveA()))
   })
   
   # Gráficas Edad #############################################################
   
-  output$grafico_armablanca_edad <- renderPlotly({
+  graficasEdadBase <- function(data) {
     # Guardando grafico en un objeto
-    e <- ggplot(filtroEdadReactiveAB())+
+    e <- ggplot(data)+
       geom_bar(mapping= aes(x=Edad, fill=Edad))+
       scale_fill_brewer(palette = "Pastel2")+
       xlab("Edad de la víctima")+
       ylab("Total de víctimas")
     
     # Transformando el gráfico a plotly
-    return(ggplotly(e))
+    return(ggplotly(e)) 
+  }
+  
+  output$grafico_armablanca_edad <- renderPlotly({
+    return(graficasEdadBase(filtroEdadReactiveAB()))
   })
   
   output$grafico_golpes_edad <- renderPlotly({
-    # Guardando grafico en un objeto
-    d <- ggplot( filtroEdadReactiveG())+
-      geom_bar(mapping= aes(x=Edad, fill=Edad))+
-      scale_fill_brewer(palette = "Pastel2")+
-      xlab("Edad de la víctima")+
-      ylab("Total de víctimas")
-    
-    # Transformando el gráfico a plotly
-    return(ggplotly(d))
+    return(graficasEdadBase(filtroEdadReactiveG()))
   })
   
   output$grafico_armafuego_edad <- renderPlotly({
-    # Guardando grafico en un objeto
-    e <- ggplot(filtroEdadReactiveAF())+
-      geom_bar(mapping= aes(x=Edad, fill=Edad))+
-      scale_fill_brewer(palette = "Pastel2")+
-      xlab("Edad de la víctima")+
-      ylab("Total de víctimas")
-    
-    # Transformando el gráfico a plotly
-    return(ggplotly(e))
+    return(graficasEdadBase(filtroEdadReactiveAF()))
   })
   
   output$grafico_arrebato_edad <- renderPlotly({
-    # Guardando grafico en un objeto
-    e <- ggplot(filtroEdadReactiveA())+
-      geom_bar(mapping= aes(x=Edad, fill=Edad))+
-      scale_fill_brewer(palette = "Pastel2")+
-      xlab("Edad de la víctima")+
-      ylab("Total de víctimas")
-    
-    # Transformando el gráfico a plotly
-    return(ggplotly(e))
+    return(graficasEdadBase(filtroEdadReactiveA()))
   })
   
   # Gráficas Provincia ########################################################
   
-  output$grafico_armablanca_provincia <- renderLeaflet({
-    map_provincia_ab <- leaflet(filtroProvinciaReactiveAB()) %>%
+  graficasProvinciaBase <- function(data) {
+    map_provincia_ab <- leaflet(data) %>%
       setView(lat = 9.9355438, lng = -84.1483647, zoom = 7) %>%
       addProviderTiles("CartoDB.Positron", options = providerTileOptions(noWrap = TRUE)) %>%
       addCircleMarkers(
@@ -679,89 +611,29 @@ server <- function(input, output) {
         opacity = 1,
         title="Provincias"
       )
+  }
+  
+  output$grafico_armablanca_provincia <- renderLeaflet({
+    graficasProvinciaBase(filtroProvinciaReactiveAB())
   })
   
   output$grafico_golpes_provincia <- renderLeaflet({
-    map_provincia_g <- leaflet(filtroProvinciaReactiveG()) %>%
-      setView(lat = 9.9355438, lng = -84.1483647, zoom = 7) %>%
-      addProviderTiles("CartoDB.Positron", options = providerTileOptions(noWrap = TRUE)) %>%
-      addCircleMarkers(
-        lng=~Long,
-        lat=~Lat,
-        color=~provincesColors(Provincia),
-        radius=~Radio,
-        stroke=FALSE,
-        fillOpacity=0.5,
-        popup=~paste(
-          "<b>", Provincia, "</b><br/>",
-          "Cantidad: ", as.character(Delito), "<br/>"
-        )
-      )%>%
-      addLegend(
-        "bottomleft",
-        pal=provincesColors,
-        values=~Provincia,
-        opacity = 1,
-        title="Provincias"
-      )
+    graficasProvinciaBase(filtroProvinciaReactiveG())
   })
   
   output$grafico_armafuego_provincia <- renderLeaflet({
-    map_provincia_af <- leaflet(filtroProvinciaReactiveAF()) %>%
-      setView(lat = 9.9355438, lng = -84.1483647, zoom = 7) %>%
-      addProviderTiles("CartoDB.Positron", options = providerTileOptions(noWrap = TRUE)) %>%
-      addCircleMarkers(
-        lng=~Long,
-        lat=~Lat,
-        color=~provincesColors(Provincia),
-        radius=~Radio,
-        stroke=FALSE,
-        fillOpacity=0.5,
-        popup=~paste(
-          "<b>", Provincia, "</b><br/>",
-          "Cantidad: ", as.character(Delito), "<br/>"
-        )
-      )%>%
-      addLegend(
-        "bottomleft",
-        pal=provincesColors,
-        values=~Provincia,
-        opacity = 1,
-        title="Provincias"
-      )
+    graficasProvinciaBase(filtroProvinciaReactiveAF())
   })
   
   output$grafico_arrebato_provincia <- renderLeaflet({
-    map_provincia_a <- leaflet(filtroProvinciaReactiveA()) %>%
-      setView(lat = 9.9355438, lng = -84.1483647, zoom = 7) %>%
-      addProviderTiles("CartoDB.Positron", options = providerTileOptions(noWrap = TRUE)) %>%
-      addCircleMarkers(
-        lng=~Long,
-        lat=~Lat,
-        color=~provincesColors(Provincia),
-        radius=~Radio,
-        stroke=FALSE,
-        fillOpacity=0.5,
-        popup=~paste(
-          "<b>", Provincia, "</b><br/>",
-          "Cantidad: ", as.character(Delito), "<br/>"
-        )
-      )%>%
-      addLegend(
-        "bottomleft",
-        pal=provincesColors,
-        values=~Provincia,
-        opacity = 1,
-        title="Provincias"
-      )
+    graficasProvinciaBase(filtroProvinciaReactiveA())
   })
   
   # Graficas Fecha #############################################################
   
-  output$grafico_armablanca_fecha <- renderPlotly({
-    
+  graficasFechaBase <- function(data) {
     # Guardando grafico en un objeto
-    f <- ggplot(agrupacionFechaReactiveAB(), aes(x=Fecha, y=Delito))+
+    f <- ggplot(data, aes(x=Fecha, y=Delito))+
       geom_line(aes(group=1), colour="#FDCDAC")+
       geom_point(aes(), colour="azure4") +
       xlab("Fecha de Asalto")+
@@ -769,46 +641,23 @@ server <- function(input, output) {
     
     # Transformando el gráfico a plotly
     return(ggplotly(f))
-
-    })
+    
+  }
+  
+  output$grafico_armablanca_fecha <- renderPlotly({
+    return(graficasFechaBase(agrupacionFechaReactiveAB()))
+  })
   
   output$grafico_golpes_fecha <- renderPlotly({
-    # Guardando grafico en un objeto
-    f <- ggplot(agrupacionFechaReactiveG(), aes(x=Fecha, y=Delito))+
-      geom_line(aes(group=1), colour="#FDCDAC")+
-      geom_point(aes(), colour="azure4") +
-      xlab("Fecha de Asalto")+
-      ylab("Total de víctimas")
-    
-    # Transformando el gráfico a plotly
-    return(ggplotly(f))
-    
+    return(graficasFechaBase(agrupacionFechaReactiveG()))
   })
   
   output$grafico_armafuego_fecha <- renderPlotly({
-    # Guardando grafico en un objeto
-    f <- ggplot(agrupacionFechaReactiveAF(), aes(x=Fecha, y=Delito))+
-      geom_line(aes(group=1), colour="#FDCDAC")+
-      geom_point(aes(), colour="azure4") +
-      xlab("Fecha de Asalto")+
-      ylab("Total de víctimas")
-    
-    # Transformando el gráfico a plotly
-    return(ggplotly(f))
-    
+    return(graficasFechaBase(agrupacionFechaReactiveAF()))
   })
   
   output$grafico_arrebato_fecha <- renderPlotly({
-    # Guardando grafico en un objeto
-    f <- ggplot(agrupacionFechaReactiveA(), aes(x=Fecha, y=Delito))+
-      geom_line(aes(group=1), colour="#FDCDAC")+
-      geom_point(aes(), colour="azure4") +
-      xlab("Fecha de Asalto")+
-      ylab("Total de víctimas")
-    
-    # Transformando el gráfico a plotly
-    return(ggplotly(f))
-    
+    return(graficasFechaBase(agrupacionFechaReactiveA()))
   })
   
   
